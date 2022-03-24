@@ -14,9 +14,13 @@
 #
 # ///////////////////////////////////////////////////////////////
 
+'''
+Main app logics
+'''
+
 # IMPORT PACKAGES AND MODULES
 # ///////////////////////////////////////////////////////////////
-from gui.uis.windows.main_window.functions_main_window import *
+from gui.uis.windows.main_window.functions_main_window import MainFunctions
 import sys
 import os
 
@@ -31,11 +35,15 @@ from gui.core.json_settings import Settings
 # IMPORT PY ONE DARK WINDOWS
 # ///////////////////////////////////////////////////////////////
 # MAIN WINDOW
-from gui.uis.windows.main_window import *
+from gui.uis.windows.main_window import UI_MainWindow, SetupMainWindow
 
-# IMPORT PY ONE DARK WIDGETS
+# MAIN FUNCTIONS 
 # ///////////////////////////////////////////////////////////////
-from gui.widgets import *
+from gui.uis.windows.main_window.functions_main_window import MainFunctions
+from gui.core.functions import Functions
+
+# APP FUNCTIONS
+from app.meta_manager import MetaManager
 
 # ADJUST QT FONT DPI FOR HIGHT SCALE AN 4K MONITOR
 # ///////////////////////////////////////////////////////////////
@@ -184,6 +192,11 @@ class MainWindow(QMainWindow):
         # DEBUG
         print(f"Button {btn.objectName()}, clicked!")
 
+
+        # PAGE ACTIONS
+        # ///////////////////////////////////////////////////////////////
+        # if btn.objectName() == "select_folder_button":
+
     # LEFT MENU BTN IS RELEASED
     # Run function when btn is released
     # Check funtion by object name / btn_id
@@ -206,6 +219,20 @@ class MainWindow(QMainWindow):
         # SET DRAG POS WINDOW
         self.dragPos = event.globalPos()
 
+    # CUSTOM EVENTS
+    # //////
+    def select_folder(self):
+
+        print(type(self))
+        # FOLDER DIALOG
+        dialog_folder = QFileDialog.getExistingDirectory(parent=self, caption="Select Directory")
+
+        # 
+        MetaManager.target_directory = dialog_folder
+        
+
+    def view_folder(self):
+        print(MetaManager.target_directory)
 
 # SETTINGS WHEN TO START
 # Set the initial class and also additional parameters of the "QApplication" class
@@ -219,4 +246,4 @@ if __name__ == "__main__":
 
     # EXEC APP
     # ///////////////////////////////////////////////////////////////
-    sys.exit(app.exec_())
+    sys.exit(app.exec())

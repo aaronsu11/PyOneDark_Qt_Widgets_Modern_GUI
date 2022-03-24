@@ -14,10 +14,12 @@
 #
 # ///////////////////////////////////////////////////////////////
 
+'''
+UI components definition
+'''
+
 # IMPORT PACKAGES AND MODULES
 # ///////////////////////////////////////////////////////////////
-from gui.widgets.py_table_widget.py_table_widget import PyTableWidget
-from . functions_main_window import *
 import sys
 import os
 
@@ -35,15 +37,16 @@ from gui.core.json_themes import Themes
 
 # IMPORT PY ONE DARK WIDGETS
 # ///////////////////////////////////////////////////////////////
-from gui.widgets import *
+from gui.widgets import PyGrips, PyPushButton, PyCircularProgress, PySlider, PyIconButton, PyLineEdit, PyToggle, PyTableWidget
 
 # LOAD UI MAIN
 # ///////////////////////////////////////////////////////////////
-from . ui_main import *
+from . ui_main import UI_MainWindow
 
 # MAIN FUNCTIONS 
 # ///////////////////////////////////////////////////////////////
-from . functions_main_window import *
+from . functions_main_window import MainFunctions
+from gui.core.functions import Functions
 
 # PY WINDOW
 # ///////////////////////////////////////////////////////////////
@@ -542,6 +545,38 @@ class SetupMainWindow:
         self.ui.load_pages.row_3_layout.addWidget(self.toggle_button)
         self.ui.load_pages.row_4_layout.addWidget(self.line_edit)
         self.ui.load_pages.row_5_layout.addWidget(self.table_widget)
+
+
+        # PAGE 3
+        # GENGERATE BUTTON
+        self.select_folder_button = PyPushButton(
+            text = "Select Folder",
+            radius = 8,
+            color = self.themes["app_color"]["text_foreground"],
+            bg_color = self.themes["app_color"]["dark_one"],
+            bg_color_hover = self.themes["app_color"]["dark_three"],
+            bg_color_pressed = self.themes["app_color"]["dark_four"]
+        )
+        self.select_folder_button.setMinimumHeight(40)
+        self.select_folder_button.setMaximumWidth(200)
+        self.select_folder_button.clicked.connect(self.select_folder)
+
+        self.ui.load_pages.select_folder_layout.addWidget(self.select_folder_button)
+
+        # TEST BUTTON
+        self.view_folder_button = PyPushButton(
+            text = "View Folder",
+            radius = 8,
+            color = self.themes["app_color"]["text_foreground"],
+            bg_color = self.themes["app_color"]["dark_one"],
+            bg_color_hover = self.themes["app_color"]["dark_three"],
+            bg_color_pressed = self.themes["app_color"]["dark_four"]
+        )
+        self.view_folder_button.setMinimumHeight(40)
+        self.view_folder_button.setMaximumWidth(200)
+        self.view_folder_button.clicked.connect(self.view_folder)
+
+        self.ui.load_pages.view_folder_layout.addWidget(self.view_folder_button)
 
         # RIGHT COLUMN
         # ///////////////////////////////////////////////////////////////

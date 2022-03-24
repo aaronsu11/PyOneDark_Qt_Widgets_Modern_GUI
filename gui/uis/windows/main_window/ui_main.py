@@ -14,6 +14,10 @@
 #
 # ///////////////////////////////////////////////////////////////
 
+'''
+UI definition for app containers
+'''
+
 # IMPORT PACKAGES AND MODULES
 # ///////////////////////////////////////////////////////////////
 from gui.core.functions import Functions
@@ -32,11 +36,11 @@ from gui.core.json_themes import Themes
 
 # IMPORT PY ONE DARK WIDGETS
 # ///////////////////////////////////////////////////////////////
-from gui.widgets import *
+from gui.widgets import PyCredits, PyWindow, PyLeftMenu, PyLeftColumn, PyTitleBar
 
 # IMPORT SETUP MAIN WINDOW
 # ///////////////////////////////////////////////////////////////
-from . setup_main_window import *
+# from . setup_main_window import *
 
 # IMPORT MAIN WINDOW PAGES / AND SIDE BOXES FOR APP
 # ///////////////////////////////////////////////////////////////
@@ -45,10 +49,6 @@ from gui.uis.pages.ui_main_pages import Ui_MainPages
 # RIGHT COLUMN
 # ///////////////////////////////////////////////////////////////
 from gui.uis.columns.ui_right_column import Ui_RightColumn
-
-# CREDITS
-# ///////////////////////////////////////////////////////////////
-from gui.widgets.py_credits_bar.py_credits import PyCredits
 
 # PY WINDOW
 # ///////////////////////////////////////////////////////////////

@@ -85,7 +85,7 @@ class Ui_MainPages(object):
         self.scroll_area.setWidgetResizable(True)
         self.contents = QWidget()
         self.contents.setObjectName(u"contents")
-        self.contents.setGeometry(QRect(0, 0, 840, 580))
+        self.contents.setGeometry(QRect(0, 0, 215, 266))
         self.contents.setStyleSheet(u"background: transparent;")
         self.verticalLayout = QVBoxLayout(self.contents)
         self.verticalLayout.setSpacing(15)
@@ -146,12 +146,40 @@ class Ui_MainPages(object):
 "}")
         self.page_3_layout = QVBoxLayout(self.page_3)
         self.page_3_layout.setObjectName(u"page_3_layout")
+        self.top_filler = QFrame(self.page_3)
+        self.top_filler.setObjectName(u"top_filler")
+        self.top_filler.setFrameShape(QFrame.StyledPanel)
+        self.top_filler.setFrameShadow(QFrame.Raised)
+
+        self.page_3_layout.addWidget(self.top_filler)
+
         self.empty_page_label = QLabel(self.page_3)
         self.empty_page_label.setObjectName(u"empty_page_label")
         self.empty_page_label.setFont(font)
         self.empty_page_label.setAlignment(Qt.AlignCenter)
 
         self.page_3_layout.addWidget(self.empty_page_label)
+
+        self.select_folder_frame = QFrame(self.page_3)
+        self.select_folder_frame.setObjectName(u"select_folder_frame")
+        self.select_folder_frame.setFrameShape(QFrame.NoFrame)
+        self.select_folder_frame.setFrameShadow(QFrame.Raised)
+        self.select_folder_layout = QHBoxLayout(self.select_folder_frame)
+        self.select_folder_layout.setSpacing(0)
+        self.select_folder_layout.setObjectName(u"select_folder_layout")
+        self.select_folder_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.page_3_layout.addWidget(self.select_folder_frame)
+
+        self.bottom_filler = QFrame(self.page_3)
+        self.bottom_filler.setObjectName(u"bottom_filler")
+        self.bottom_filler.setFrameShadow(QFrame.Raised)
+        self.view_folder_layout = QHBoxLayout(self.bottom_filler)
+        self.view_folder_layout.setSpacing(0)
+        self.view_folder_layout.setObjectName(u"view_folder_layout")
+        self.view_folder_layout.setContentsMargins(0, 0, 0, 0)
+
+        self.page_3_layout.addWidget(self.bottom_filler)
 
         self.pages.addWidget(self.page_3)
 
@@ -160,7 +188,7 @@ class Ui_MainPages(object):
 
         self.retranslateUi(MainPages)
 
-        self.pages.setCurrentIndex(0)
+        self.pages.setCurrentIndex(2)
 
 
         QMetaObject.connectSlotsByName(MainPages)
@@ -172,6 +200,6 @@ class Ui_MainPages(object):
         self.title_label.setText(QCoreApplication.translate("MainPages", u"Custom Widgets Page", None))
         self.description_label.setText(QCoreApplication.translate("MainPages", u"Here will be all the custom widgets, they will be added over time on this page.\n"
 "I will try to always record a new tutorial when adding a new Widget and updating the project on Patreon before launching on GitHub and GitHub after the public release.", None))
-        self.empty_page_label.setText(QCoreApplication.translate("MainPages", u"Empty Page", None))
+        self.empty_page_label.setText(QCoreApplication.translate("MainPages", u"Generate Manifest", None))
     # retranslateUi
 
