@@ -1,5 +1,13 @@
+# temp files
 __pycache__/
 .vscode/
 .git/
 .pyc
+
+# local virtual environment
 env
+
+# local files
+*.db
+*.log
+*.ipynb

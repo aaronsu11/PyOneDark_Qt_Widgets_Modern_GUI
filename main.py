@@ -20,9 +20,9 @@ Main app logics
 
 # IMPORT PACKAGES AND MODULES
 # ///////////////////////////////////////////////////////////////
-from gui.uis.windows.main_window.functions_main_window import MainFunctions
 import sys
 import os
+import argparse
 
 # IMPORT QT CORE
 # ///////////////////////////////////////////////////////////////
@@ -49,6 +49,7 @@ from app.meta_manager import MetaManager
 # ///////////////////////////////////////////////////////////////
 os.environ["QT_FONT_DPI"] = "96"
 # IF IS 4K MONITOR ENABLE 'os.environ["QT_SCALE_FACTOR"] = "2"'
+
 
 # MAIN WINDOW
 # ///////////////////////////////////////////////////////////////
@@ -238,12 +239,24 @@ class MainWindow(QMainWindow):
 # Set the initial class and also additional parameters of the "QApplication" class
 # ///////////////////////////////////////////////////////////////
 if __name__ == "__main__":
-    # APPLICATION
-    # ///////////////////////////////////////////////////////////////
-    app = QApplication(sys.argv)
-    app.setWindowIcon(QIcon("icon.ico"))
-    window = MainWindow()
+    # CLI MODE
+    parser = argparse.ArgumentParser(description='Generate metadata for folders and files')
+    parser.add_argument('-s', '--source', type=str, metavar='', help='Source directory where the manifest will be generated from')
+    parser.add_argument('-o', '--output_dir', type=str, metavar='', help='Manifest output directory, default to CWD')
+    parser.add_argument('-fl', '--folder_list', type=str, metavar='', help='The csv contain the folder list to generate manifest from')
+    parser.add_argument('--excl_tmp', action='store_true', help='Ignore temporary files (e.g. ~$data.xlsx, thumbs.db)')
+    parser.add_argument('--no_hash', action='store_true', help='Skip generating hash for all files')
+    args = parser.parse_args()
 
-    # EXEC APP
-    # ///////////////////////////////////////////////////////////////
-    sys.exit(app.exec())
+    if args.source or args.folder_list:
+        MetaManager.generate_manifest_cli(args.source, args.folder_list, args.output_dir, args.excl_tmp, args.no_hash)
+    else:
+        # APPLICATION
+        # ///////////////////////////////////////////////////////////////
+        app = QApplication(sys.argv)
+        app.setWindowIcon(QIcon("icon.ico"))
+        window = MainWindow()
+
+        # EXEC APP
+        # ///////////////////////////////////////////////////////////////
+        sys.exit(app.exec())
