@@ -2,26 +2,28 @@
 
 
 """
-meta_generator.py - v4.3
+meta_generator.py - v4.4
 Generate manifest for a directory, its sub-directory and all files recursively.
 1. Support zip file hashing without extracting to file system
 2. Support auto-reconciliation between folder and file manifests
 3. Support timeout, manual stop and resume
 4. Support batch processing for multiple directories using csv
+5. Optimized for large volumn scan
 """
 
 # build-in libs
 import os
 import re
 import time
-from datetime import datetime
-from shutil import copy2
 import hashlib
 import zipfile
 import multiprocessing as mp
 import concurrent.futures as futures
 import argparse
 import logging
+from datetime import datetime
+from shutil import copy2
+from typing import List
 # thrid-party libs
 import pandas as pd
 from sqlalchemy import create_engine, func, Column, String, Integer, Boolean, DateTime
@@ -508,10 +510,14 @@ class MetaGenerator():
         logger.debug(f'Generating directory tree for {os.path.basename(top_dir)}')
 
         # Step 1: get files and folders meta (without total count and size)
+        # begin() perform auto-commit at exit
         with self.Session.begin() as session:
             n_file_scanned = 0
             # pre-populate folder entries
             for dirpath, dirnames, filenames in os.walk(top_dir):
+                # clean mapping buffer
+                file_meta_mappings: List[dict] = []
+
                 # initialise total root files size
                 root_file_size = 0
 
@@ -525,26 +531,30 @@ class MetaGenerator():
                 for filename in filtered_filenames:
                     try:
                         fp = os.path.join(dirpath, filename)
-                        fm = FileMeta()
-                        fm.full_path = fp
-                        fm.file_name = filename
-                        fm.folder_path = os.path.dirname(fp)
                         fsize = os.path.getsize(fp)
-                        fm.size = fsize
-                        fm.extension = get_file_category(fp)
-                        fm.creation_time = datetime.fromtimestamp(os.path.getctime(fp))
-                        fm.modified_time = datetime.fromtimestamp(os.path.getmtime(fp))
-                        fm.hash_algorithm = self.config['general']['hash_algorithm']
-                        # insert or update this entry
-                        session.merge(fm)
+                        file_meta_mappings.append(
+                            dict(
+                                full_path = fp,
+                                file_name = filename,
+                                folder_path = os.path.dirname(fp),
+                                size = fsize,
+                                extension = get_file_category(fp),
+                                creation_time = datetime.fromtimestamp(os.path.getctime(fp)),
+                                modified_time = datetime.fromtimestamp(os.path.getmtime(fp)),
+                                hash_algorithm = self.config['general']['hash_algorithm']
+                            )
+                        )
                     except:
                         logger.error(f'Error occurred trying to update record for {fp}')
-                        raise
+                    else:
+                        root_file_size += fsize
+                    finally:
+                        n_file_scanned += 1
+                        if n_file_scanned % 1000 == 0:
+                            logger.info(f'{n_file_scanned} files scanned...')
 
-                    root_file_size += fsize
-                    n_file_scanned += 1
-                    if n_file_scanned % 1000 == 0:
-                        logger.info(f'{n_file_scanned} files scanned...')
+                # update session at each folder, skip ORM for efficiency
+                session.bulk_insert_mappings(FileMeta, file_meta_mappings)
 
                 new_entry = {
                     'FOLDER_NAME': os.path.basename(dirpath),
@@ -582,7 +592,6 @@ class MetaGenerator():
             self.folder_df.loc[index, 'SIZE_IN_BYTES'] = folder_record.ROOT_FILE_SIZE + child_size
             self.folder_df.loc[index, 'FILE_COUNT'] = folder_record.ROOT_FILE_COUNT + child_file_count
             self.folder_df.loc[index, 'SUB_FOLDER_COUNT'] = folder_record.ROOT_SUBFOLDER_COUNT + child_folder_count
-
         return
 
     @timeout(config['general']['batch_timeout'])

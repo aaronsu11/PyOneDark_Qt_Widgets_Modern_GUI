@@ -1,10 +1,9 @@
 # Meta Manager core logics
 
 import os
-import sys
 import time
 import pandas as pd
-from typing import Tuple, Dict
+from typing import Dict
 
 from .meta_generator import MetaGenerator
 
