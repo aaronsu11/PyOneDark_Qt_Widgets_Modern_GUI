@@ -2,8 +2,9 @@
 
 import os
 import time
+import json
 import pandas as pd
-from typing import Dict
+from typing import List, Dict
 
 from .meta_generator import MetaGenerator
 
@@ -16,6 +17,102 @@ from .meta_generator import MetaGenerator
 
 
 class MetaManager:
+    
+    # default config for loading csv
+    config: dict = {
+        'target_col': 'Reference Folder Path',
+        'rm_col': 'Remove',
+        'output_col': 'Output',
+        'directories': [],
+        "options": {}      
+    }
+
+    config_path: str = os.path.join(os.getcwd(), 'config.json')
+    output_dir: str = os.path.join(os.getcwd(), 'manifests')
+
+    @classmethod
+    def read_csv_config(cls, fp: str) -> None:
+        csv_config = pd.read_csv(fp, index_col=None)
+
+        target_col: str = cls.config['target_col']
+        rm_col: str = cls.config['rm_col']
+        output_col: str = cls.config['output_col']
+
+        if not target_col in csv_config.columns:
+            raise ValueError('No folder path provided under "Reference Folder Path" column, exit...')
+
+        custom_remove: bool = rm_col in csv_config.columns
+        custom_output: bool = output_col in csv_config.columns
+
+        folder_config: List[dict] = []
+
+        for i, row in csv_config.iterrows():
+            # target directory
+            directory = row[target_col]
+            if not directory:
+                continue
+
+            # output config
+            output_dir = cls.output_dir
+            if custom_output and row[output_col]:
+                output_dir = row[output_col]
+
+            remove = ''
+            if custom_remove:
+                remove = row[rm_col]
+
+            folder_config.append(
+                dict(
+                    target=directory,
+                    output_dir=output_dir,
+                    mask=remove
+                )
+            )
+        # save config to manager
+        cls.config['directories'] = folder_config
+
+    @classmethod
+    def read_json_config(cls, fp: str='') -> None:
+        if not fp:
+            fp = cls.config_path
+
+        with open(fp, 'r') as f:
+            custom_config: dict = json.load(f)
+
+        for key, value in custom_config.items():
+            if key in cls.config:
+                cls.config[key] = value
+            else:
+                print(f'[WARNING] unsupported field "{key}" in custom config')
+
+    @classmethod
+    def save_json_config(cls, fp: str='') -> None:
+        if not fp:
+            fp = cls.config_path
+
+        with open(fp, 'w', encoding='utf-8') as f:
+            json.dump(cls.config, f, ensure_ascii=False, indent=4)
+
+    @classmethod
+    def generate_manifest(cls, source_dir, output_dir, mask='', post_processing=[]):
+        # Instantiate the generator object
+        generator = MetaGenerator(
+            # set the manifest output location
+            output_dir=output_dir if output_dir else cls.output_dir,
+            # option to exclude temp file (e.g. ~$data.xlsx, thumbs.db) during scanning
+            excl_tmp=False,
+            # verbosity of log output
+            verbose=0
+        )
+
+        generator.output_meta(
+            # choose the directory for scan
+            source_dir,
+            # custom postprocessing steps
+            post_processing=post_processing, 
+            # mask sub string for paths
+            rm_substring=mask
+        )
 
     @staticmethod
     def compare_manifests(source: str, target: str) -> Dict[str, pd.DataFrame]:
@@ -98,6 +195,107 @@ class MetaManager:
         df_target_only = df_target_only[['TARGET_INDEX', 'DIRECTORY', 'FILE_NAME']]
 
         return {'renamed': renamed_df, 'moved': moved_df, 'edited': edited_df, 'deleted': df_source_only, 'new': df_target_only}
+
+    def generate_report():
+        pass
+
+    @classmethod
+    def generate_delta(cls):
+        # 1. check benchmark exist or not
+        # 2. generate new manifest
+        # 3. compare manifests
+        # 4. generate report
+
+        if not output_dir:
+            output_dir = self.output_dir
+            # logger.info(f'output folder default to {output_dir}')
+
+        if not os.path.isfile(list_path):
+            # logger.error(f'{list_path} does not exist, please verify input path')
+            raise Exception()
+        else:
+            fl_df = pd.read_csv(list_path)
+
+        cols = fl_df.columns
+
+        list_col = self.options['postprocessing']['multiple']['list_col']
+        rm_col = self.options['postprocessing']['multiple']['rm_col']
+
+        if not list_col in cols:
+            # logger.error(f'could not find the reference column {list_col} in the csv')
+            return
+
+        unfinished_df = pd.DataFrame(columns = cols)
+
+        folder_cols = ['FOLDER_NAME', 'SIZE_IN_BYTES', 'FILE_COUNT', 'ROOT_FILE_COUNT', 'SUB_FOLDER_COUNT', 'DIRECTORY_PATH', 'FOLDER_DESCRIPTION']
+
+        # TODO: replace iterrows
+        for index, row in fl_df.iterrows():
+            try:
+                self.clean_table()
+                top_dir = row[list_col]
+
+                # logger.debug(f'Generating manifest for {top_dir}...')
+
+                # reset folder dataframe
+                self.folder_df = pd.DataFrame(columns = folder_cols)
+                
+                post_processing = self.options['postprocessing']['multiple']['process']
+
+                rm_substring = ''
+
+                if rm_col in cols:
+                    # post-processing directory path cleanse
+                    rm_substring = str(row[rm_col])
+                    if not rm_substring or rm_substring == 'nan':
+                        rm_substring = ''
+                        # logger.warning(f'remove string is not specified for row {index + 2}: {top_dir}')
+                    else:
+                        post_processing.extend([
+                            {
+                                'type': 'file',
+                                'option': 2, # remove content
+                                'targets': [
+                                    {
+                                        'column_name': 'DIRECTORY',
+                                        'content': rm_substring
+                                    }
+                                ]
+                            },
+                            {
+                                'type': 'folder',
+                                'option': 2, # remove content
+                                'targets': [
+                                    {
+                                        'column_name': 'DIRECTORY_PATH',
+                                        'content': rm_substring
+                                    }
+                                ]
+                            },
+                        ])
+
+                self.output_meta(top_dir, output_dir, recon_mode=recon_mode, post_processing=post_processing, rm_substring=rm_substring, no_hash=no_hash)
+                # logger.info(f'-------------------------------------------------- folder {index+1} processed')
+            except Exception as e:
+                # logger.error(str(e))
+                # logger.error(f'failed to generate manifest for {row[list_col]}, skipping...')
+                unfinished_df = unfinished_df.append(row, ignore_index=True)
+                # logger.info(f'-------------------------------------------------- folder {index+1} failed')
+        n_unsuccessful = len(unfinished_df.index)
+        if n_unsuccessful > 0:
+            output_path = os.path.join(output_dir, 'unfinished.csv')
+            unfinished_df.to_csv(output_path, index = False, header=True)
+            # logger.error(f'failed to scan {n_unsuccessful} directory')
+            # logger.warning(f'unsuccessful directory scan(s) has been recorded in {output_path}')
+        return
+
+    def schedule_job(cls):
+        pass
+
+    def manage():
+        # 1. load config and see any scheduled jobs
+        # 2. resume all jobs according to schedule
+        pass
 
     # CLI METHODS
     # //////////////////////////////////////

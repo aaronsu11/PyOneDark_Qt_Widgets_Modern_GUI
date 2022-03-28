@@ -1,0 +1,43 @@
+{
+    "target_col": "Reference Folder Path",
+    "rm_col": "Remove",
+    "output_col": "Output",
+    "directories": [
+        {
+            "target": "C:\\Users\\RN767KA\\Projects\\test docs\\Test Cases\\__attachments__",
+            "output_dir": "C:\\Users\\RN767KA\\Projects\\Playground\\output\\Test1",
+            "mask": "C:\\Users\\RN767KA\\"
+        },
+        {
+            "target": "C:\\Users\\RN767KA\\Projects\\test docs\\Test Cases\\240322_excel",
+            "output_dir": "C:\\Users\\RN767KA\\Projects\\Playground\\output\\Test2",
+            "mask": "C:\\Users\\"
+        }
+    ],
+    "options": {
+        "postprocessing":{
+            "manager": [
+                {
+                    "type": "file",
+                    "option": 1,
+                    "targets": [
+                        {"column_name": "FULL_PATH"},
+                        {"column_name": "COMPRESSED"},
+                        {"column_name": "PROCESSED"},
+                        {"column_name": "ERROR"},
+                        {"column_name": "BATCH NO."}
+                    ]
+                },
+                {
+                    "type": "folder",
+                    "option": 1,
+                    "targets": [
+                        {"column_name": "ROOT_FILE_SIZE"},
+                        {"column_name": "ROOT_FILE_COUNT"},
+                        {"column_name": "ROOT_SUBFOLDER_COUNT"}
+                    ]
+                }
+            ]
+        }
+    }
+}

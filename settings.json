@@ -1,8 +1,8 @@
 {
-    "app_name": "PyOneDark - Modern GUI",
+    "app_name": "Meta Manager",
     "version" : "v1.0.0",
-    "copyright" : "By: Wanderson M. Pimenta",
-    "year" : 2021,
+    "copyright" : "By: Aaron Su",
+    "year" : 2022,
     "theme_name" : "default",
     "custom_title_bar": true,
     "startup_size": [

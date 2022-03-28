@@ -819,6 +819,7 @@ class MetaGenerator():
                 column_name = target['column_name']
                 content = target['content']
                 if column_name in final_df.columns:
+                    # TODO: replace iterrows
                     for index, row in df.iterrows():
                         final_df.at[index, column_name] = row[column_name].replace(content, '', 1)
                     logger.debug(f'removed {content} in column: {column_name}')
@@ -927,6 +928,8 @@ class MetaGenerator():
         unfinished_df = pd.DataFrame(columns = cols)
 
         folder_cols = ['FOLDER_NAME', 'SIZE_IN_BYTES', 'FILE_COUNT', 'ROOT_FILE_COUNT', 'SUB_FOLDER_COUNT', 'DIRECTORY_PATH', 'FOLDER_DESCRIPTION']
+
+        # TODO: replace iterrows
         for index, row in fl_df.iterrows():
             try:
                 self.clean_table()
@@ -980,7 +983,7 @@ class MetaGenerator():
                 logger.info(f'-------------------------------------------------- folder {index+1} failed')
         n_unsuccessful = len(unfinished_df.index)
         if n_unsuccessful > 0:
-            output_path = os.qpath.join(output_dir, 'unfinished.csv')
+            output_path = os.path.join(output_dir, 'unfinished.csv')
             unfinished_df.to_csv(output_path, index = False, header=True)
             logger.error(f'failed to scan {n_unsuccessful} directory')
             logger.warning(f'unsuccessful directory scan(s) has been recorded in {output_path}')
