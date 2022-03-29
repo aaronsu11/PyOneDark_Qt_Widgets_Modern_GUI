@@ -23,7 +23,7 @@ import argparse
 import logging
 from datetime import datetime
 from shutil import copy2
-from typing import List
+from typing import List, Tuple
 # thrid-party libs
 import pandas as pd
 from sqlalchemy import create_engine, func, Column, String, Integer, Boolean, DateTime
@@ -850,7 +850,7 @@ class MetaGenerator():
             logger.info(f'done outputing {n_output} out of {n_total} zipfile manifests')
 
     # output manifest for a SINGLE directory
-    def output_meta(self, top_dir, output_dir='', recon_mode=0, no_hash=False, post_processing=[], rm_substring=''):
+    def output_meta(self, top_dir, output_dir='', recon_mode=0, no_hash=False, post_processing=[], rm_substring='') -> Tuple[str, str]:
         if not output_dir:
             output_dir = self.output_dir
             logger.info(f'output folder default to {output_dir}')
@@ -902,7 +902,8 @@ class MetaGenerator():
                     break
             except PermissionError:
                 input('[INPUT REQUIRED] Permission Error occurred, please close the relevant files and press ENTER...')
-        return
+        
+        return file_m_path, folder_m_path
 
     # output manifests for MULTIPLE directory
     def output_manifests(self, list_path, output_dir='', recon_mode=0, no_hash=False):

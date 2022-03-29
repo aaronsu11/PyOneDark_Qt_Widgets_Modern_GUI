@@ -1,6 +1,7 @@
 # Meta Manager core logics
 
 import os
+import re
 import time
 import json
 import pandas as pd
@@ -15,16 +16,42 @@ from .meta_generator import MetaGenerator
 # 5. Schedule the main function in task manager or a long running application
 # 6. Design of config file
 
-
 class MetaManager:
     
     # default config for loading csv
     config: dict = {
-        'target_col': 'Reference Folder Path',
-        'rm_col': 'Remove',
-        'output_col': 'Output',
+        'csv': {
+            'target_col': 'Reference Folder Path',
+            'rm_col': 'Remove',
+            'output_col': 'Manifest Output',
+            'delta_output_col': 'Delta Output',
+            'baseline_col': 'Manifest Baseline Version'
+        }, 
         'directories': [],
-        "options": {}      
+        "options": {
+            'postprocessing': [
+                {
+                    "type": "file",
+                    "option": 1,
+                    "targets": [
+                        {"column_name": "FULL_PATH"},
+                        {"column_name": "COMPRESSED"},
+                        {"column_name": "PROCESSED"},
+                        {"column_name": "ERROR"},
+                        {"column_name": "BATCH NO."}
+                    ]
+                },
+                {
+                    "type": "folder",
+                    "option": 1,
+                    "targets": [
+                        {"column_name": "ROOT_FILE_SIZE"},
+                        {"column_name": "ROOT_FILE_COUNT"},
+                        {"column_name": "ROOT_SUBFOLDER_COUNT"}
+                    ]
+                }
+            ]
+        }      
     }
 
     config_path: str = os.path.join(os.getcwd(), 'config.json')
@@ -34,15 +61,19 @@ class MetaManager:
     def read_csv_config(cls, fp: str) -> None:
         csv_config = pd.read_csv(fp, index_col=None)
 
-        target_col: str = cls.config['target_col']
-        rm_col: str = cls.config['rm_col']
-        output_col: str = cls.config['output_col']
+        target_col: str = cls.config['csv']['target_col']
+        rm_col: str = cls.config['csv']['rm_col']
+        manifest_output_col: str = cls.config['csv']['output_col']
+        delta_output_col: str = cls.config['csv']['delta_output_col']
+        baseline_col: str = cls.config['csv']['baseline_col']
 
         if not target_col in csv_config.columns:
             raise ValueError('No folder path provided under "Reference Folder Path" column, exit...')
 
         custom_remove: bool = rm_col in csv_config.columns
-        custom_output: bool = output_col in csv_config.columns
+        custom_output: bool = manifest_output_col in csv_config.columns
+        custom_delta_output: bool = delta_output_col in csv_config.columns
+        custom_baseline: bool = baseline_col in csv_config.columns
 
         folder_config: List[dict] = []
 
@@ -54,17 +85,27 @@ class MetaManager:
 
             # output config
             output_dir = cls.output_dir
-            if custom_output and row[output_col]:
-                output_dir = row[output_col]
+            if custom_output and row[manifest_output_col]:
+                output_dir = row[manifest_output_col]
+
+            delta_output_dir = os.path.join(output_dir, 'delta')
+            if custom_delta_output and row[delta_output_col]:
+                delta_output_dir = row[delta_output_col]
+
+            baseline = ''
+            if custom_baseline and row[baseline_col]:
+                baseline = row[baseline_col]
 
             remove = ''
-            if custom_remove:
+            if custom_remove and row[rm_col] != 'nan':
                 remove = row[rm_col]
 
             folder_config.append(
                 dict(
                     target=directory,
                     output_dir=output_dir,
+                    delta_output_dir=delta_output_dir,
+                    baseline=baseline,
                     mask=remove
                 )
             )
@@ -89,12 +130,23 @@ class MetaManager:
     def save_json_config(cls, fp: str='') -> None:
         if not fp:
             fp = cls.config_path
-
+        # reset temporary directories fields
+        output_config = cls.config.copy()
+        output_config['directories'] = [
+            {
+                "target": "<full directory path>",
+                "output_dir": "<full manifest output path>",
+                "delta_output_dir": "<full delta output path>",
+                "baseline": "<baseline manifest timestamp>",
+                "mask": "<substring to remove in path>"
+            }
+        ]
+        # save config
         with open(fp, 'w', encoding='utf-8') as f:
-            json.dump(cls.config, f, ensure_ascii=False, indent=4)
+            json.dump(output_config, f, ensure_ascii=False, indent=4)
 
     @classmethod
-    def generate_manifest(cls, source_dir, output_dir, mask='', post_processing=[]):
+    def generate_manifest(cls, source_dir: str, output_dir: str, mask: str='', post_processing=[]) -> str:
         # Instantiate the generator object
         generator = MetaGenerator(
             # set the manifest output location
@@ -104,8 +156,8 @@ class MetaManager:
             # verbosity of log output
             verbose=0
         )
-
-        generator.output_meta(
+        generator.clean_table()
+        file_meta_fp, folder_meta_fp = generator.output_meta(
             # choose the directory for scan
             source_dir,
             # custom postprocessing steps
@@ -113,6 +165,7 @@ class MetaManager:
             # mask sub string for paths
             rm_substring=mask
         )
+        return file_meta_fp
 
     @staticmethod
     def compare_manifests(source: str, target: str) -> Dict[str, pd.DataFrame]:
@@ -144,10 +197,13 @@ class MetaManager:
 
         # identify differences
         df_diff = df_source.merge(df_target, how='outer', on=['FILE_NAME', 'DIRECTORY', 'CREATION_TIME', 'HASH_VALUE'], suffixes=('_OLD', '_NEW'), indicator=True)
+        df_matched: pd.DataFrame = df_diff.loc[lambda x : x['_merge']=='both'].drop(columns=['_merge'])
         df_source_only: pd.DataFrame = df_diff.loc[lambda x : x['_merge']=='left_only'].drop(columns=['index_NEW', '_merge']).rename(columns = {'index_OLD':'index'})
         df_target_only: pd.DataFrame = df_diff.loc[lambda x : x['_merge']=='right_only'].drop(columns=['index_OLD', '_merge']).rename(columns = {'index_NEW':'index'})
 
         # adjust the index values
+        df_matched['index_OLD'] = df_matched['index_OLD'].add(2).astype(int)
+        df_matched['index_NEW'] = df_matched['index_NEW'].add(2).astype(int)
         df_source_only['index'] = df_source_only['index'].add(2).astype(int)
         df_target_only['index'] = df_target_only['index'].add(2).astype(int)
 
@@ -184,6 +240,7 @@ class MetaManager:
         renamed_df.rename(columns = {'index_OLD':'SOURCE_INDEX', 'index_NEW':'TARGET_INDEX', 'FILE_NAME_OLD':'SOURCE_FILE_NAME', 'FILE_NAME_NEW': 'TARGET_FILE_NAME'}, inplace = True)
         moved_df.rename(columns = {'index_OLD':'SOURCE_INDEX', 'index_NEW':'TARGET_INDEX', 'DIRECTORY_OLD':'SOURCE_DIRECTORY', 'DIRECTORY_NEW': 'TARGET_DIRECTORY'}, inplace = True)
         edited_df.rename(columns = {'index_OLD':'SOURCE_INDEX', 'index_NEW':'TARGET_INDEX'}, inplace = True)
+        df_matched.rename(columns = {'index_OLD':'SOURCE_INDEX', 'index_NEW':'TARGET_INDEX'}, inplace = True)
         df_source_only.rename(columns = {'index':'SOURCE_INDEX'}, inplace = True)
         df_target_only.rename(columns = {'index':'TARGET_INDEX'}, inplace = True)
 
@@ -191,103 +248,86 @@ class MetaManager:
         renamed_df = renamed_df[['DIRECTORY', 'SOURCE_INDEX', 'SOURCE_FILE_NAME', 'TARGET_INDEX', 'TARGET_FILE_NAME']]
         moved_df = moved_df[['FILE_NAME', 'SOURCE_INDEX', 'SOURCE_DIRECTORY',  'TARGET_INDEX', 'TARGET_DIRECTORY']]
         edited_df = edited_df[['DIRECTORY', 'FILE_NAME', 'SOURCE_INDEX', 'TARGET_INDEX']]
+        df_matched = df_matched[['DIRECTORY', 'FILE_NAME', 'SOURCE_INDEX', 'TARGET_INDEX']]
         df_source_only = df_source_only[['SOURCE_INDEX', 'DIRECTORY', 'FILE_NAME']]
         df_target_only = df_target_only[['TARGET_INDEX', 'DIRECTORY', 'FILE_NAME']]
 
-        return {'renamed': renamed_df, 'moved': moved_df, 'edited': edited_df, 'deleted': df_source_only, 'new': df_target_only}
+        return {'matched': df_matched, 'renamed': renamed_df, 'moved': moved_df, 'edited': edited_df, 'deleted': df_source_only, 'new': df_target_only}
 
-    def generate_report():
-        pass
+    @staticmethod
+    def generate_report(comparison_dict: Dict[str, pd.DataFrame], output_dir: str) -> None:
+        # write to xlsx report
+        writer = pd.ExcelWriter(output_dir)
+        summary_rows = []
+        for key, df in comparison_dict.items():
+            if key == 'matched':
+                continue
+
+            n_record = len(df.index)
+            summary_rows.append({'Category': key.upper(), "Count": n_record})
+            # generate excel report
+            df.to_excel(writer, key.upper(), index=False)
+        pd.DataFrame(summary_rows).to_excel(writer, 'Summary')
+        writer.sheets['Summary'].activate()
+        writer.save()
 
     @classmethod
-    def generate_delta(cls):
-        # 1. check benchmark exist or not
-        # 2. generate new manifest
-        # 3. compare manifests
-        # 4. generate report
+    def generate_delta(cls, dir_config: dict, postprocessing: list=[], callback=None) -> None:
+        '''generate delta for single directory'''
 
-        if not output_dir:
-            output_dir = self.output_dir
-            # logger.info(f'output folder default to {output_dir}')
+        # 0. check config
+        if not 'target' in dir_config or not dir_config['target']:
+            raise ValueError('target directory is not specified')
 
-        if not os.path.isfile(list_path):
-            # logger.error(f'{list_path} does not exist, please verify input path')
-            raise Exception()
+        source_dir = dir_config['target']
+
+        output_dir = cls.output_dir
+        if 'output_dir' in dir_config and dir_config['output_dir']:
+            output_dir = dir_config['output_dir']
+
+        # 1. find benchmark file if exists
+        if 'baseline' in dir_config and dir_config['baseline']:
+            fn = dir_config['baseline']
+            # if timestamp is provided only
+            if fn.isdigit():
+                fn = f'{os.path.basename(source_dir)}_file_metadata_{fn}.csv'
+            baseline = os.path.join(output_dir, fn)
+            if not os.path.isfile(baseline):
+                raise FileNotFoundError('Baseline file manifest not found')
         else:
-            fl_df = pd.read_csv(list_path)
+            file_meta_list = sorted([
+                f for f in os.listdir(output_dir) 
+                if re.match(os.path.basename(source_dir) + r'_file_metadata_[0-9]{14}\.csv$', f)
+            ])
+            if file_meta_list:
+                baseline = os.path.join(output_dir, file_meta_list[-1])
+            else:
+                baseline = ''
 
-        cols = fl_df.columns
+        # 2. generate new manifest
+        mask = ''
+        if 'mask' in dir_config and dir_config['mask']:
+            mask = dir_config['mask']
+            postprocessing.extend([
+                {
+                    'type': 'file', 
+                    'option': 2, # remove substring
+                    'targets': [{'column_name': 'DIRECTORY','content': mask}]
+                },
+                {
+                    'type': 'folder', 
+                    'option': 2, # remove substring
+                    'targets': [{'column_name': 'DIRECTORY_PATH', 'content': mask}]
+                },
+            ])
 
-        list_col = self.options['postprocessing']['multiple']['list_col']
-        rm_col = self.options['postprocessing']['multiple']['rm_col']
+        new_file_meta_fp = cls.generate_manifest(source_dir, output_dir, mask, postprocessing)
 
-        if not list_col in cols:
-            # logger.error(f'could not find the reference column {list_col} in the csv')
-            return
-
-        unfinished_df = pd.DataFrame(columns = cols)
-
-        folder_cols = ['FOLDER_NAME', 'SIZE_IN_BYTES', 'FILE_COUNT', 'ROOT_FILE_COUNT', 'SUB_FOLDER_COUNT', 'DIRECTORY_PATH', 'FOLDER_DESCRIPTION']
-
-        # TODO: replace iterrows
-        for index, row in fl_df.iterrows():
-            try:
-                self.clean_table()
-                top_dir = row[list_col]
-
-                # logger.debug(f'Generating manifest for {top_dir}...')
-
-                # reset folder dataframe
-                self.folder_df = pd.DataFrame(columns = folder_cols)
-                
-                post_processing = self.options['postprocessing']['multiple']['process']
-
-                rm_substring = ''
-
-                if rm_col in cols:
-                    # post-processing directory path cleanse
-                    rm_substring = str(row[rm_col])
-                    if not rm_substring or rm_substring == 'nan':
-                        rm_substring = ''
-                        # logger.warning(f'remove string is not specified for row {index + 2}: {top_dir}')
-                    else:
-                        post_processing.extend([
-                            {
-                                'type': 'file',
-                                'option': 2, # remove content
-                                'targets': [
-                                    {
-                                        'column_name': 'DIRECTORY',
-                                        'content': rm_substring
-                                    }
-                                ]
-                            },
-                            {
-                                'type': 'folder',
-                                'option': 2, # remove content
-                                'targets': [
-                                    {
-                                        'column_name': 'DIRECTORY_PATH',
-                                        'content': rm_substring
-                                    }
-                                ]
-                            },
-                        ])
-
-                self.output_meta(top_dir, output_dir, recon_mode=recon_mode, post_processing=post_processing, rm_substring=rm_substring, no_hash=no_hash)
-                # logger.info(f'-------------------------------------------------- folder {index+1} processed')
-            except Exception as e:
-                # logger.error(str(e))
-                # logger.error(f'failed to generate manifest for {row[list_col]}, skipping...')
-                unfinished_df = unfinished_df.append(row, ignore_index=True)
-                # logger.info(f'-------------------------------------------------- folder {index+1} failed')
-        n_unsuccessful = len(unfinished_df.index)
-        if n_unsuccessful > 0:
-            output_path = os.path.join(output_dir, 'unfinished.csv')
-            unfinished_df.to_csv(output_path, index = False, header=True)
-            # logger.error(f'failed to scan {n_unsuccessful} directory')
-            # logger.warning(f'unsuccessful directory scan(s) has been recorded in {output_path}')
-        return
+        if baseline:
+            # 3. compare manifests
+            comparison_dict = cls.compare_manifests(baseline, new_file_meta_fp)
+            # 4. generate report
+            cls.generate_report(comparison_dict, output_dir)
 
     def schedule_job(cls):
         pass
@@ -319,11 +359,26 @@ class MetaManager:
         # get comparison result
         comparison_dict = cls.compare_manifests(source, target)
         # write to xlsx report
-        writer = pd.ExcelWriter(output_dir)
-        for key, value in comparison_dict.items():
-            # generate excel report
-            value.to_excel(writer, key.upper(), index=False)
-        writer.save()
+        cls.generate_report(comparison_dict, output_dir)
+
+    @classmethod
+    def generate_delta_cli(cls, config_path: str):
+        # check config is json or csv
+        if config_path.endswith('.csv'):
+            cls.read_csv_config(config_path)
+        elif config_path.endswith('.json'):
+            cls.read_json_config(config_path)
+        else:
+            print('[ERROR] unsupported config type')
+            return
+
+        if not 'directories' in cls.config or not cls.config['directories']:
+            print('[INFO] no directory specified')
+            return
+
+        postprocessing: List[dict] = cls.config['options']['postprocessing']
+        for dir_config in cls.config['directories']:
+            cls.generate_delta(dir_config, postprocessing)
 
 
 if __name__ == '__main__':
