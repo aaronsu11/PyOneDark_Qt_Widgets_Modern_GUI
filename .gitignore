@@ -12,3 +12,4 @@ env
 *.log
 *.ipynb
 *.csv
+*.xlsx

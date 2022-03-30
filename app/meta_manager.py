@@ -1,12 +1,13 @@
 # Meta Manager core logics
-
+# libraries
 import os
 import re
 import time
 import json
+import logging
 import pandas as pd
 from typing import List, Dict
-
+# core
 from .meta_generator import MetaGenerator
 
 # 1. Function to generate meta data ( filename, path, size, hash) for a file
@@ -15,6 +16,23 @@ from .meta_generator import MetaGenerator
 # 4. Main function ( main entry point) to read a list of folders from a config file and run step 2 and 3
 # 5. Schedule the main function in task manager or a long running application
 # 6. Design of config file
+
+# output logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+# Create handlers
+console_logger = logging.StreamHandler()
+file_logger = logging.FileHandler('meta.log')
+# console_logger.setLevel(logging.DEBUG)
+file_logger.setLevel(logging.WARNING)
+# Create formatters and add it to handlers
+concole_format = logging.Formatter('[%(levelname)s] %(message)s')
+file_format = logging.Formatter('%(asctime)s - [%(levelname)s] %(message)s')
+console_logger.setFormatter(concole_format)
+file_logger.setFormatter(file_format)
+# Add handlers to the logger
+logger.addHandler(console_logger)
+logger.addHandler(file_logger)
 
 class MetaManager:
     
@@ -55,11 +73,12 @@ class MetaManager:
     }
 
     config_path: str = os.path.join(os.getcwd(), 'config.json')
-    output_dir: str = os.path.join(os.getcwd(), 'manifests')
+    output_dir: str = os.path.join(os.getcwd(), 'manifest')
+    delta_output_dir: str = os.path.join(output_dir, 'delta')
 
     @classmethod
     def read_csv_config(cls, fp: str) -> None:
-        csv_config = pd.read_csv(fp, index_col=None)
+        csv_config = pd.read_csv(fp, index_col=None).fillna('')
 
         target_col: str = cls.config['csv']['target_col']
         rm_col: str = cls.config['csv']['rm_col']
@@ -95,9 +114,11 @@ class MetaManager:
             baseline = ''
             if custom_baseline and row[baseline_col]:
                 baseline = row[baseline_col]
+                if not isinstance(baseline, str):
+                    baseline = str(int(baseline))
 
             remove = ''
-            if custom_remove and row[rm_col] != 'nan':
+            if custom_remove and row[rm_col]:
                 remove = row[rm_col]
 
             folder_config.append(
@@ -124,7 +145,7 @@ class MetaManager:
             if key in cls.config:
                 cls.config[key] = value
             else:
-                print(f'[WARNING] unsupported field "{key}" in custom config')
+                logger.warning(f'unsupported field "{key}" in custom config')
 
     @classmethod
     def save_json_config(cls, fp: str='') -> None:
@@ -255,59 +276,52 @@ class MetaManager:
         return {'matched': df_matched, 'renamed': renamed_df, 'moved': moved_df, 'edited': edited_df, 'deleted': df_source_only, 'new': df_target_only}
 
     @staticmethod
-    def generate_report(comparison_dict: Dict[str, pd.DataFrame], output_dir: str) -> None:
+    def generate_report(comparison_dict: Dict[str, pd.DataFrame], output_fp: str) -> None:
         # write to xlsx report
-        writer = pd.ExcelWriter(output_dir)
+        writer = pd.ExcelWriter(output_fp)
+        # summary page place holder
+        pd.DataFrame().to_excel(writer, 'Summary')
         summary_rows = []
+        # report each category
         for key, df in comparison_dict.items():
-            if key == 'matched':
-                continue
-
+            # get summary stats
             n_record = len(df.index)
             summary_rows.append({'Category': key.upper(), "Count": n_record})
+            # skip matched records
+            if key == 'matched':
+                continue
             # generate excel report
             df.to_excel(writer, key.upper(), index=False)
-        pd.DataFrame(summary_rows).to_excel(writer, 'Summary')
-        writer.sheets['Summary'].activate()
+        # fill in summary page
+        pd.DataFrame(summary_rows).to_excel(writer, 'Summary', index=False)
         writer.save()
 
     @classmethod
     def generate_delta(cls, dir_config: dict, postprocessing: list=[], callback=None) -> None:
         '''generate delta for single directory'''
 
-        # 0. check config
+        # 0. parse config
         if not 'target' in dir_config or not dir_config['target']:
             raise ValueError('target directory is not specified')
 
         source_dir = dir_config['target']
+        dir_name = os.path.basename(source_dir)
 
         output_dir = cls.output_dir
         if 'output_dir' in dir_config and dir_config['output_dir']:
             output_dir = dir_config['output_dir']
 
-        # 1. find benchmark file if exists
-        if 'baseline' in dir_config and dir_config['baseline']:
-            fn = dir_config['baseline']
-            # if timestamp is provided only
-            if fn.isdigit():
-                fn = f'{os.path.basename(source_dir)}_file_metadata_{fn}.csv'
-            baseline = os.path.join(output_dir, fn)
-            if not os.path.isfile(baseline):
-                raise FileNotFoundError('Baseline file manifest not found')
-        else:
-            file_meta_list = sorted([
-                f for f in os.listdir(output_dir) 
-                if re.match(os.path.basename(source_dir) + r'_file_metadata_[0-9]{14}\.csv$', f)
-            ])
-            if file_meta_list:
-                baseline = os.path.join(output_dir, file_meta_list[-1])
-            else:
-                baseline = ''
+        delta_output_dir = cls.delta_output_dir
+        if 'delta_output_dir' in dir_config and dir_config['delta_output_dir']:
+            delta_output_dir = dir_config['delta_output_dir']
 
-        # 2. generate new manifest
         mask = ''
         if 'mask' in dir_config and dir_config['mask']:
             mask = dir_config['mask']
+            # user defined output name format
+            dir_name = source_dir.replace(mask, '', 1)
+            dir_name = dir_name.replace('\\', '_')
+            # additional postprocessing
             postprocessing.extend([
                 {
                     'type': 'file', 
@@ -321,13 +335,45 @@ class MetaManager:
                 },
             ])
 
+        # 1. find benchmark file if exists
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+
+        if 'baseline' in dir_config and dir_config['baseline']:
+            fn = dir_config['baseline']
+            # if timestamp is provided only
+            if fn.isdigit():
+                fn = f'{dir_name}_file_metadata_{int(fn)}.csv'
+            baseline = os.path.join(output_dir, fn)
+            if not os.path.isfile(baseline):
+                raise FileNotFoundError('Baseline file manifest not found')
+        else:
+            file_meta_list = sorted([
+                f for f in os.listdir(output_dir) 
+                if re.match(dir_name + r'_file_metadata_[0-9]{14}\.csv$', f)
+            ])
+
+            if file_meta_list:
+                baseline = os.path.join(output_dir, file_meta_list[-1])
+            else:
+                baseline = ''
+
+        # 2. generate new manifest
         new_file_meta_fp = cls.generate_manifest(source_dir, output_dir, mask, postprocessing)
 
         if baseline:
             # 3. compare manifests
             comparison_dict = cls.compare_manifests(baseline, new_file_meta_fp)
             # 4. generate report
-            cls.generate_report(comparison_dict, output_dir)
+            # create output dir if not exists
+            if not os.path.exists(delta_output_dir):
+                os.makedirs(delta_output_dir)
+            # get report full path
+            baseline_timestamp = re.search('([0-9]{14})\.csv$', baseline).group(1)
+            new_timestamp = re.search('([0-9]{14})\.csv$', new_file_meta_fp).group(1)
+            delta_output_fn = f'{dir_name}_delta_report_{new_timestamp}_to_{baseline_timestamp}.xlsx'
+            delta_output_fp = os.path.join(delta_output_dir, delta_output_fn)
+            cls.generate_report(comparison_dict, delta_output_fp)
 
     def schedule_job(cls):
         pass
@@ -364,21 +410,29 @@ class MetaManager:
     @classmethod
     def generate_delta_cli(cls, config_path: str):
         # check config is json or csv
+        if not config_path:
+            logger.error('no config file provided')
+            return
+
         if config_path.endswith('.csv'):
             cls.read_csv_config(config_path)
         elif config_path.endswith('.json'):
             cls.read_json_config(config_path)
         else:
-            print('[ERROR] unsupported config type')
+            logger.error('unsupported config type')
             return
 
         if not 'directories' in cls.config or not cls.config['directories']:
-            print('[INFO] no directory specified')
+            logger.info('no directory specified')
             return
 
         postprocessing: List[dict] = cls.config['options']['postprocessing']
         for dir_config in cls.config['directories']:
-            cls.generate_delta(dir_config, postprocessing)
+            try:
+                cls.generate_delta(dir_config, postprocessing)
+            except Exception as e:
+                target = dir_config['target'] if 'target' in dir_config else dir_config
+                logger.error(f'failed to generate delta for {target}: {str(e)}')
 
 
 if __name__ == '__main__':
