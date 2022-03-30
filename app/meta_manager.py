@@ -36,6 +36,9 @@ logger.addHandler(file_logger)
 
 class MetaManager:
     
+    # default paths
+    config_path: str = os.path.join(os.getcwd(), 'config.json')
+    output_dir: str = os.path.join(os.getcwd(), 'manifest')
     # default config for loading csv
     config: dict = {
         'csv': {
@@ -71,10 +74,6 @@ class MetaManager:
             ]
         }      
     }
-
-    config_path: str = os.path.join(os.getcwd(), 'config.json')
-    output_dir: str = os.path.join(os.getcwd(), 'manifest')
-    delta_output_dir: str = os.path.join(output_dir, 'delta')
 
     @classmethod
     def read_csv_config(cls, fp: str) -> None:
@@ -311,7 +310,7 @@ class MetaManager:
         if 'output_dir' in dir_config and dir_config['output_dir']:
             output_dir = dir_config['output_dir']
 
-        delta_output_dir = cls.delta_output_dir
+        delta_output_dir: str = os.path.join(output_dir, 'delta')
         if 'delta_output_dir' in dir_config and dir_config['delta_output_dir']:
             delta_output_dir = dir_config['delta_output_dir']
 

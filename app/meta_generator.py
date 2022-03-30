@@ -787,7 +787,7 @@ class MetaGenerator():
             logger.warning('Reconciliation has failed. Check output csv.')
         return
 
-    def postprocess(self, df, option, targets=[]):
+    def postprocess(self, df: pd.DataFrame, option: int, targets: list=[]):
         """
         Post-process the result df from generation inplace
         option:
@@ -819,9 +819,7 @@ class MetaGenerator():
                 column_name = target['column_name']
                 content = target['content']
                 if column_name in final_df.columns:
-                    # TODO: replace iterrows
-                    for index, row in df.iterrows():
-                        final_df.at[index, column_name] = row[column_name].replace(content, '', 1)
+                    final_df[column_name] = final_df[column_name].str.replace(re.escape(content), '', 1, regex=True)
                     logger.debug(f'removed {content} in column: {column_name}')
         return final_df
 
@@ -930,7 +928,6 @@ class MetaGenerator():
 
         folder_cols = ['FOLDER_NAME', 'SIZE_IN_BYTES', 'FILE_COUNT', 'ROOT_FILE_COUNT', 'SUB_FOLDER_COUNT', 'DIRECTORY_PATH', 'FOLDER_DESCRIPTION']
 
-        # TODO: replace iterrows
         for index, row in fl_df.iterrows():
             try:
                 self.clean_table()
