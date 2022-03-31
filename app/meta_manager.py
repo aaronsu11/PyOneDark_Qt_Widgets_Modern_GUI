@@ -7,6 +7,9 @@ import json
 import logging
 import pandas as pd
 from typing import List, Dict
+from datetime import datetime, timedelta, timezone
+from apscheduler.schedulers.base import BaseScheduler
+from apscheduler.triggers.cron import CronTrigger
 # core
 from .meta_generator import MetaGenerator
 
@@ -39,6 +42,8 @@ class MetaManager:
     # default paths
     config_path: str = os.path.join(os.getcwd(), 'config.json')
     output_dir: str = os.path.join(os.getcwd(), 'manifest')
+    # scheduler
+    scheduler: BaseScheduler = None
     # default config for loading csv
     config: dict = {
         'csv': {
@@ -49,26 +54,49 @@ class MetaManager:
             'baseline_col': 'Manifest Baseline Version'
         }, 
         'directories': [],
-        "options": {
+        'jobs': [
+            {
+                'target': 'C:\\Users\\RN767KA\\Projects\\test docs\\Test Cases\\__attachments__',
+                'output_dir': 'C:\\Users\\RN767KA\\Projects\\Playground\\output\\Test1',
+                'delta_output_dir': 'C:\\Users\\RN767KA\\Projects\\Playground\\output\\delta',
+                'baseline': '20220330101844',
+                'mask': 'C:\\Users\\RN767KA\\',
+                # https://apscheduler.readthedocs.io/en/latest/modules/triggers/cron.html#module-apscheduler.triggers.cron
+                'schedule': {
+                    'year': '*', 
+                    'month': '*', 
+                    'day': '*', 
+                    'week': '*', 
+                    'day_of_week': 'mon', 
+                    'hour': 12, 
+                    # 'minute': 0, 
+                    # 'second': 0, # not recommended, too frequent
+                    'start_date': datetime.now(),
+                    'end_date': datetime.now + timedelta(days=1),
+                    'timezone': timezone.utc
+                }
+            }
+        ],
+        'options': {
             'postprocessing': [
                 {
-                    "type": "file",
-                    "option": 1,
-                    "targets": [
-                        {"column_name": "FULL_PATH"},
-                        {"column_name": "COMPRESSED"},
-                        {"column_name": "PROCESSED"},
-                        {"column_name": "ERROR"},
-                        {"column_name": "BATCH NO."}
+                    'type': 'file',
+                    'option': 1,
+                    'targets': [
+                        {'column_name': 'FULL_PATH'},
+                        {'column_name': 'COMPRESSED'},
+                        {'column_name': 'PROCESSED'},
+                        {'column_name': 'ERROR'},
+                        {'column_name': 'BATCH NO.'}
                     ]
                 },
                 {
-                    "type": "folder",
-                    "option": 1,
-                    "targets": [
-                        {"column_name": "ROOT_FILE_SIZE"},
-                        {"column_name": "ROOT_FILE_COUNT"},
-                        {"column_name": "ROOT_SUBFOLDER_COUNT"}
+                    'type': 'folder',
+                    'option': 1,
+                    'targets': [
+                        {'column_name': 'ROOT_FILE_SIZE'},
+                        {'column_name': 'ROOT_FILE_COUNT'},
+                        {'column_name': 'ROOT_SUBFOLDER_COUNT'}
                     ]
                 }
             ]
@@ -374,8 +402,25 @@ class MetaManager:
             delta_output_fp = os.path.join(delta_output_dir, delta_output_fn)
             cls.generate_report(comparison_dict, delta_output_fp)
 
-    def schedule_job(cls):
-        pass
+    @classmethod
+    def schedule_jobs(cls):
+        postprocessing: List[dict] = cls.config['options']['postprocessing']
+        for job in cls.config['jobs']:
+            if not 'schedule' in job:
+                # run immediately
+                cls.scheduler.add_job(cls.generate_delta, kwargs={'dir_config': job, 'postprocessing': postprocessing})
+            else:
+                schedule = job['schedule']
+                if isinstance(schedule, dict):
+                    # unpack dictionary cron config
+                    trigger = CronTrigger(**schedule)
+                elif isinstance(schedule, str):
+                    trigger = CronTrigger.from_crontab(schedule)
+                else:
+                    continue
+                # schedule periodic job
+                # TODO: add identifier to job and track them in manager
+                cls.scheduler.add_job(cls.generate_delta, trigger=trigger, kwargs={'dir_config': job, 'postprocessing': postprocessing})
 
     def manage():
         # 1. load config and see any scheduled jobs
