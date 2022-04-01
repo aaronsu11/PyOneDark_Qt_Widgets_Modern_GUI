@@ -301,7 +301,16 @@ class MetaManager:
         df_source_only = df_source_only[['SOURCE_INDEX', 'DIRECTORY', 'FILE_NAME']]
         df_target_only = df_target_only[['TARGET_INDEX', 'DIRECTORY', 'FILE_NAME']]
 
-        return {'matched': df_matched, 'renamed': renamed_df, 'moved': moved_df, 'edited': edited_df, 'deleted': df_source_only, 'new': df_target_only}
+        return {
+            'baseline': df_source, 
+            'latest': df_target, 
+            'matched': df_matched, 
+            'renamed': renamed_df, 
+            'moved': moved_df, 
+            'edited': edited_df, 
+            'deleted': df_source_only, 
+            'new': df_target_only
+        }
 
     @staticmethod
     def generate_report(comparison_dict: Dict[str, pd.DataFrame], output_fp: str) -> None:
@@ -316,7 +325,7 @@ class MetaManager:
             n_record = len(df.index)
             summary_rows.append({'Category': key.upper(), "Count": n_record})
             # skip matched records
-            if key == 'matched':
+            if key in ['baseline', 'latest', 'matched']:
                 continue
             # generate excel report
             df.to_excel(writer, key.upper(), index=False)
@@ -409,7 +418,7 @@ class MetaManager:
     def schedule_jobs(cls):
         postprocessing: List[dict] = cls.config['options']['postprocessing']
         for job in cls.config['jobs']:
-            if not 'schedule' in job:
+            if not 'schedule' in job or not job['schedule']:
                 # run immediately
                 cls.scheduler.add_job(cls.generate_delta, kwargs={'dir_config': job, 'postprocessing': postprocessing})
             else:
@@ -426,7 +435,8 @@ class MetaManager:
                 cls.scheduler.add_job(cls.generate_delta, trigger=trigger, kwargs={'dir_config': job, 'postprocessing': postprocessing})
         return
 
-    def manage():
+    @classmethod
+    def manage(cls):
         # 1. load config and see any scheduled jobs
         # 2. resume all jobs according to schedule
         pass
