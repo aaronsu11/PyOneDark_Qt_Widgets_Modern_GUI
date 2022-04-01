@@ -7,6 +7,11 @@ __pycache__/
 # local virtual environment
 env
 
+# local build and dist
+build
+dist
+*.spec
+
 # local files
 *.db
 *.log

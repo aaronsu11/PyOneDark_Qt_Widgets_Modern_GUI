@@ -12,6 +12,6 @@ if __name__ == "__main__":
     # parser.add_argument('--no_hash', action='store_true', help='Skip generating hash for all files')
     args = parser.parse_args()
 
-    MetaManager.generate_delta_cli(args.config)
+    MetaManager.schedule_jobs_cli(args.config)
     # MetaManager.schedule_jobs_cli('folder_list.csv')
     # MetaManager.schedule_jobs_cli('job_config.json')
