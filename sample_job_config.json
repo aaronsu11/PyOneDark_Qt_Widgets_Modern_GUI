@@ -1,0 +1,33 @@
+{
+    "timezone": "UTC",
+    "jobs": [
+        {
+            "target": "C:\\Users\\RN767KA\\Projects\\test docs\\Test Cases\\__attachments__",
+            "output_dir": "C:\\Users\\RN767KA\\Projects\\Playground\\output\\Test1",
+            "delta_output_dir": "C:\\Users\\RN767KA\\Projects\\Playground\\output\\delta",
+            "baseline": "20220330101844",
+            "mask": "C:\\Users\\RN767KA\\"
+        },
+        {
+            "target": "C:\\Users\\RN767KA\\Projects\\test docs\\Test Cases\\240322_excel",
+            "output_dir": "C:\\Users\\RN767KA\\Projects\\Playground\\output\\Test2",
+            "mask": "C:\\Users\\RN767KA\\Projects\\test docs\\Test Cases\\"
+        },
+        {
+            "target": "C:\\Users\\RN767KA\\Projects\\test docs\\Test Cases\\__attachments__",
+            "output_dir": "C:\\Users\\RN767KA\\Projects\\Playground\\output\\Test1",
+            "delta_output_dir": "",
+            "baseline": "",
+            "mask": "C:\\Users\\RN767KA\\Projects\\test docs\\",
+            "schedule": {
+                "year": "*", 
+                "month": "*", 
+                "day": 1, 
+                "week": "*", 
+                "day_of_week": "fri", 
+                "hour": "*", 
+                "minute": "*/1"
+            }
+        }
+    ]
+}

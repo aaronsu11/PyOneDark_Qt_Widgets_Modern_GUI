@@ -7,8 +7,10 @@ import json
 import logging
 import pandas as pd
 from typing import List, Dict
-from datetime import datetime, timedelta, timezone
+# scheduler
 from apscheduler.schedulers.base import BaseScheduler
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.triggers.cron import CronTrigger
 # core
 from .meta_generator import MetaGenerator
@@ -29,7 +31,7 @@ file_logger = logging.FileHandler('meta.log')
 # console_logger.setLevel(logging.DEBUG)
 file_logger.setLevel(logging.WARNING)
 # Create formatters and add it to handlers
-concole_format = logging.Formatter('[%(levelname)s] %(message)s')
+concole_format = logging.Formatter('%(asctime)s - [%(levelname)s] %(message)s')
 file_format = logging.Formatter('%(asctime)s - [%(levelname)s] %(message)s')
 console_logger.setFormatter(concole_format)
 file_logger.setFormatter(file_format)
@@ -46,37 +48,18 @@ class MetaManager:
     scheduler: BaseScheduler = None
     # default config for loading csv
     config: dict = {
+        # https://docs.trifacta.com/display/DP/Supported+Time+Zone+Values
+        'timezone': '',
+        # https://apscheduler.readthedocs.io/en/latest/modules/triggers/cron.html#module-apscheduler.triggers.cron
+        'jobs': [],
         'csv': {
             'target_col': 'Reference Folder Path',
             'rm_col': 'Remove',
             'output_col': 'Manifest Output',
             'delta_output_col': 'Delta Output',
-            'baseline_col': 'Manifest Baseline Version'
+            'baseline_col': 'Manifest Baseline Version',
+            'schedule_col': 'Schedule Crontab'
         }, 
-        'directories': [],
-        'jobs': [
-            {
-                'target': 'C:\\Users\\RN767KA\\Projects\\test docs\\Test Cases\\__attachments__',
-                'output_dir': 'C:\\Users\\RN767KA\\Projects\\Playground\\output\\Test1',
-                'delta_output_dir': 'C:\\Users\\RN767KA\\Projects\\Playground\\output\\delta',
-                'baseline': '20220330101844',
-                'mask': 'C:\\Users\\RN767KA\\',
-                # https://apscheduler.readthedocs.io/en/latest/modules/triggers/cron.html#module-apscheduler.triggers.cron
-                'schedule': {
-                    'year': '*', 
-                    'month': '*', 
-                    'day': '*', 
-                    'week': '*', 
-                    'day_of_week': 'mon', 
-                    'hour': 12, 
-                    # 'minute': 0, 
-                    # 'second': 0, # not recommended, too frequent
-                    'start_date': datetime.now(),
-                    'end_date': datetime.now + timedelta(days=1),
-                    'timezone': timezone.utc
-                }
-            }
-        ],
         'options': {
             'postprocessing': [
                 {
@@ -112,6 +95,7 @@ class MetaManager:
         manifest_output_col: str = cls.config['csv']['output_col']
         delta_output_col: str = cls.config['csv']['delta_output_col']
         baseline_col: str = cls.config['csv']['baseline_col']
+        schedule_col: str = cls.config['csv']['schedule_col']
 
         if not target_col in csv_config.columns:
             raise ValueError('No folder path provided under "Reference Folder Path" column, exit...')
@@ -120,8 +104,9 @@ class MetaManager:
         custom_output: bool = manifest_output_col in csv_config.columns
         custom_delta_output: bool = delta_output_col in csv_config.columns
         custom_baseline: bool = baseline_col in csv_config.columns
+        custom_schedule: bool = schedule_col in csv_config.columns
 
-        folder_config: List[dict] = []
+        job_config: List[dict] = []
 
         for i, row in csv_config.iterrows():
             # target directory
@@ -148,17 +133,22 @@ class MetaManager:
             if custom_remove and row[rm_col]:
                 remove = row[rm_col]
 
-            folder_config.append(
+            schedule = ''
+            if custom_schedule and row[schedule_col]:
+                schedule = row[schedule_col]
+
+            job_config.append(
                 dict(
                     target=directory,
                     output_dir=output_dir,
                     delta_output_dir=delta_output_dir,
                     baseline=baseline,
-                    mask=remove
+                    mask=remove,
+                    schedule=schedule
                 )
             )
         # save config to manager
-        cls.config['directories'] = folder_config
+        cls.config['jobs'] = job_config
 
     @classmethod
     def read_json_config(cls, fp: str='') -> None:
@@ -175,20 +165,31 @@ class MetaManager:
                 logger.warning(f'unsupported field "{key}" in custom config')
 
     @classmethod
-    def save_json_config(cls, fp: str='') -> None:
+    def save_json_config(cls, fp: str='', save_jobs: bool=False) -> None:
         if not fp:
             fp = cls.config_path
-        # reset temporary directories fields
+
         output_config = cls.config.copy()
-        output_config['directories'] = [
-            {
-                "target": "<full directory path>",
-                "output_dir": "<full manifest output path>",
-                "delta_output_dir": "<full delta output path>",
-                "baseline": "<baseline manifest timestamp>",
-                "mask": "<substring to remove in path>"
-            }
-        ]
+        if not save_jobs:
+        # reset temporary jobs field
+            output_config['jobs'] = [
+                {
+                    "target": "<full directory path>",
+                    "output_dir": "<full manifest output path>",
+                    "delta_output_dir": "<full delta output path>",
+                    "baseline": "<baseline manifest timestamp>",
+                    "mask": "<substring to remove in path>",
+                    "schedule": {
+                        "year": "*", 
+                        "month": "*", 
+                        "day": "*", 
+                        "week": "*/2", 
+                        "day_of_week": "sat", 
+                        "hour": 4, 
+                        "minute": 0
+                    }
+                }
+            ]
         # save config
         with open(fp, 'w', encoding='utf-8') as f:
             json.dump(output_config, f, ensure_ascii=False, indent=4)
@@ -387,6 +388,7 @@ class MetaManager:
 
         # 2. generate new manifest
         new_file_meta_fp = cls.generate_manifest(source_dir, output_dir, mask, postprocessing)
+        logger.info(f'generated new manifest for {source_dir}')
 
         if baseline:
             # 3. compare manifests
@@ -401,6 +403,7 @@ class MetaManager:
             delta_output_fn = f'{dir_name}_delta_report_{new_timestamp}_to_{baseline_timestamp}.xlsx'
             delta_output_fp = os.path.join(delta_output_dir, delta_output_fn)
             cls.generate_report(comparison_dict, delta_output_fp)
+            logger.info(f'generated new delta report for {source_dir}')
 
     @classmethod
     def schedule_jobs(cls):
@@ -421,11 +424,17 @@ class MetaManager:
                 # schedule periodic job
                 # TODO: add identifier to job and track them in manager
                 cls.scheduler.add_job(cls.generate_delta, trigger=trigger, kwargs={'dir_config': job, 'postprocessing': postprocessing})
+        return
 
     def manage():
         # 1. load config and see any scheduled jobs
         # 2. resume all jobs according to schedule
         pass
+
+    @classmethod
+    def shutdown(cls):
+        logger.info('shutting down scheduler')
+        cls.scheduler.shutdown()
 
     # CLI METHODS
     # //////////////////////////////////////
@@ -452,7 +461,7 @@ class MetaManager:
         cls.generate_report(comparison_dict, output_dir)
 
     @classmethod
-    def generate_delta_cli(cls, config_path: str):
+    def schedule_jobs_cli(cls, config_path: str):
         # check config is json or csv
         if not config_path:
             logger.error('no config file provided')
@@ -466,17 +475,33 @@ class MetaManager:
             logger.error('unsupported config type')
             return
 
-        if not 'directories' in cls.config or not cls.config['directories']:
-            logger.info('no directory specified')
+        if not 'jobs' in cls.config or not cls.config['jobs']:
+            logger.info('no job specified')
             return
 
-        postprocessing: List[dict] = cls.config['options']['postprocessing']
-        for dir_config in cls.config['directories']:
-            try:
-                cls.generate_delta(dir_config, postprocessing)
-            except Exception as e:
-                target = dir_config['target'] if 'target' in dir_config else dir_config
-                logger.error(f'failed to generate delta for {target}: {str(e)}')
+        executors = {
+            'default': ThreadPoolExecutor(1)
+        }
+        job_defaults = {
+            'coalesce': True,
+            'max_instances': 1
+        }
+
+        # use background scheduler instead of blocking scheduler for faster shutdown time
+        if 'timezone' in cls.config and cls.config['timezone']:
+            cls.scheduler = BackgroundScheduler(executors=executors, job_defaults=job_defaults, timezone=cls.config['timezone'])
+        else:
+            cls.scheduler = BackgroundScheduler(executors=executors, job_defaults=job_defaults)
+        cls.schedule_jobs()
+        cls.scheduler.start()
+
+        cls.scheduler.print_jobs()
+        logger.info('Press Ctrl+C to exit')
+        try:
+            while True:
+                time.sleep(1)
+        except (KeyboardInterrupt, SystemExit):
+            cls.shutdown()
 
 
 if __name__ == '__main__':

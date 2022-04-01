@@ -1,27 +1,14 @@
 {
+    "timezone": "Australia/Sydney",
+    "jobs": [],
     "csv": {
         "target_col": "Reference Folder Path",
         "rm_col": "Remove",
         "output_col": "Manifest Output",
         "delta_output_col": "Delta Output",
-        "baseline_col": "Manifest Baseline Version"
+        "baseline_col": "Manifest Baseline Version",
+        "schedule_col": "Schedule Crontab"
     },
-    "directories": [
-        {
-            "target": "C:\\Users\\RN767KA\\Projects\\test docs\\Test Cases\\__attachments__",
-            "output_dir": "C:\\Users\\RN767KA\\Projects\\Playground\\output\\Test1",
-            "delta_output_dir": "",
-            "baseline": "",
-            "mask": "C:\\Users\\RN767KA\\"
-        },
-        {
-            "target": "C:\\Users\\RN767KA\\Projects\\test docs\\Test Cases\\240322_excel",
-            "output_dir": "C:\\Users\\RN767KA\\Projects\\Playground\\output\\Test2",
-            "delta_output_dir": "",
-            "baseline": "",
-            "mask": "C:\\Users\\"
-        }
-    ],
     "options": {
         "postprocessing": [
             {

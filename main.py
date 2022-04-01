@@ -13,4 +13,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # MetaManager.generate_delta_cli(args.config)
-    MetaManager.generate_delta_cli('job_config.json')
+    MetaManager.schedule_jobs_cli('folder_list.csv')
+    # MetaManager.schedule_jobs_cli('job_config.json')
