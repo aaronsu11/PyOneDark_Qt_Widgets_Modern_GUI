@@ -548,6 +548,21 @@ class SetupMainWindow:
 
 
         # PAGE 3
+        self.source_text_field = PyLineEdit(
+            text = "",
+            place_holder_text = "Source Directory",
+            radius = 8,
+            border_size = 2,
+            color = self.themes["app_color"]["text_foreground"],
+            selection_color = self.themes["app_color"]["white"],
+            bg_color = self.themes["app_color"]["dark_one"],
+            bg_color_active = self.themes["app_color"]["dark_three"],
+            context_color = self.themes["app_color"]["context_color"]
+        )
+        self.source_text_field.setMinimumHeight(30)
+
+        self.ui.load_pages.source_select_layout.addWidget(self.source_text_field)
+
         # GENGERATE BUTTON
         self.select_folder_button = PyPushButton(
             text = "Select Folder",
@@ -561,22 +576,22 @@ class SetupMainWindow:
         self.select_folder_button.setMaximumWidth(200)
         self.select_folder_button.clicked.connect(self.select_folder)
 
-        self.ui.load_pages.select_folder_layout.addWidget(self.select_folder_button)
+        self.ui.load_pages.source_select_layout.addWidget(self.select_folder_button)
 
         # TEST BUTTON
-        self.view_folder_button = PyPushButton(
-            text = "View Folder",
-            radius = 8,
-            color = self.themes["app_color"]["text_foreground"],
-            bg_color = self.themes["app_color"]["dark_one"],
-            bg_color_hover = self.themes["app_color"]["dark_three"],
-            bg_color_pressed = self.themes["app_color"]["dark_four"]
-        )
-        self.view_folder_button.setMinimumHeight(40)
-        self.view_folder_button.setMaximumWidth(200)
-        self.view_folder_button.clicked.connect(self.view_folder)
+        # self.view_folder_button = PyPushButton(
+        #     text = "View Folder",
+        #     radius = 8,
+        #     color = self.themes["app_color"]["text_foreground"],
+        #     bg_color = self.themes["app_color"]["dark_one"],
+        #     bg_color_hover = self.themes["app_color"]["dark_three"],
+        #     bg_color_pressed = self.themes["app_color"]["dark_four"]
+        # )
+        # self.view_folder_button.setMinimumHeight(40)
+        # self.view_folder_button.setMaximumWidth(200)
+        # self.view_folder_button.clicked.connect(self.view_folder)
 
-        self.ui.load_pages.view_folder_layout.addWidget(self.view_folder_button)
+        # self.ui.load_pages.view_folder_layout.addWidget(self.source_text_field)
 
         # RIGHT COLUMN
         # ///////////////////////////////////////////////////////////////

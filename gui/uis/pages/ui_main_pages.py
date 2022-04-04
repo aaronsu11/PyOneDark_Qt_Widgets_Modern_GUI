@@ -1,22 +1,16 @@
-# ///////////////////////////////////////////////////////////////
-#
-# BY: WANDERSON M.PIMENTA
-# PROJECT MADE WITH: Qt Designer and PySide6
-# V: 1.0.0
-#
-# This project can be used freely for all uses, as long as they maintain the
-# respective credits only in the Python scripts, any information in the visual
-# interface (GUI) can be modified without any implication.
-#
-# There are limitations on Qt licenses if you want to use your products
-# commercially, I recommend reading them on the official website:
-# https://doc.qt.io/qtforpython/licenses.html
-#
-# ///////////////////////////////////////////////////////////////
+# -*- coding: utf-8 -*-
 
-# IMPORT QT CORE
-# ///////////////////////////////////////////////////////////////
-from qt_core import *
+################################################################################
+## Form generated from reading UI file 'main_pagesSovwjt.ui'
+##
+## Created by: Qt User Interface Compiler version 6.1.0
+##
+## WARNING! All changes made in this file will be lost when recompiling UI file!
+################################################################################
+
+from PySide6.QtCore import *
+from PySide6.QtGui import *
+from PySide6.QtWidgets import *
 
 
 class Ui_MainPages(object):
@@ -85,7 +79,7 @@ class Ui_MainPages(object):
         self.scroll_area.setWidgetResizable(True)
         self.contents = QWidget()
         self.contents.setObjectName(u"contents")
-        self.contents.setGeometry(QRect(0, 0, 215, 266))
+        self.contents.setGeometry(QRect(0, 0, 840, 580))
         self.contents.setStyleSheet(u"background: transparent;")
         self.verticalLayout = QVBoxLayout(self.contents)
         self.verticalLayout.setSpacing(15)
@@ -146,13 +140,6 @@ class Ui_MainPages(object):
 "}")
         self.page_3_layout = QVBoxLayout(self.page_3)
         self.page_3_layout.setObjectName(u"page_3_layout")
-        self.top_filler = QFrame(self.page_3)
-        self.top_filler.setObjectName(u"top_filler")
-        self.top_filler.setFrameShape(QFrame.StyledPanel)
-        self.top_filler.setFrameShadow(QFrame.Raised)
-
-        self.page_3_layout.addWidget(self.top_filler)
-
         self.empty_page_label = QLabel(self.page_3)
         self.empty_page_label.setObjectName(u"empty_page_label")
         self.empty_page_label.setFont(font)
@@ -160,16 +147,11 @@ class Ui_MainPages(object):
 
         self.page_3_layout.addWidget(self.empty_page_label)
 
-        self.select_folder_frame = QFrame(self.page_3)
-        self.select_folder_frame.setObjectName(u"select_folder_frame")
-        self.select_folder_frame.setFrameShape(QFrame.NoFrame)
-        self.select_folder_frame.setFrameShadow(QFrame.Raised)
-        self.select_folder_layout = QHBoxLayout(self.select_folder_frame)
-        self.select_folder_layout.setSpacing(0)
-        self.select_folder_layout.setObjectName(u"select_folder_layout")
-        self.select_folder_layout.setContentsMargins(0, 0, 0, 0)
+        self.source_select_layout = QHBoxLayout()
+        self.source_select_layout.setSpacing(6)
+        self.source_select_layout.setObjectName(u"source_select_layout")
 
-        self.page_3_layout.addWidget(self.select_folder_frame)
+        self.page_3_layout.addLayout(self.source_select_layout)
 
         self.bottom_filler = QFrame(self.page_3)
         self.bottom_filler.setObjectName(u"bottom_filler")
