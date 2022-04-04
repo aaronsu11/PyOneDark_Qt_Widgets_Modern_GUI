@@ -443,7 +443,6 @@ class MetaManager:
 
     @classmethod
     def shutdown(cls):
-        logger.info('shutting down scheduler')
         cls.scheduler.shutdown()
 
     # CLI METHODS
@@ -493,6 +492,7 @@ class MetaManager:
             'default': ThreadPoolExecutor(1)
         }
         job_defaults = {
+            'misfire_grace_time': None,
             'coalesce': True,
             'max_instances': 1
         }
@@ -505,12 +505,17 @@ class MetaManager:
         cls.schedule_jobs()
         cls.scheduler.start()
 
-        cls.scheduler.print_jobs()
-        logger.info('Press Ctrl+C to exit')
-        try:
-            while True:
-                time.sleep(1)
-        except (KeyboardInterrupt, SystemExit):
+        if cls.scheduler.get_jobs():
+            cls.scheduler.print_jobs()
+            logger.info('Press Ctrl+C to exit')
+            try:
+                while True:
+                    time.sleep(1)
+            except (KeyboardInterrupt, SystemExit):
+                logger.info('shutting down scheduler')
+                cls.shutdown()
+        else:
+            logger.info('No scheduled job found, shutdown after executing immediate jobs...')
             cls.shutdown()
 
 
