@@ -353,13 +353,14 @@ class MetaManager:
             delta_output_dir = dir_config['delta_output_dir']
 
         mask = ''
+        dir_postprocessing = []
         if 'mask' in dir_config and dir_config['mask']:
             mask = dir_config['mask']
             # user defined output name format
             dir_name = source_dir.replace(mask, '', 1)
             dir_name = dir_name.replace('\\', '_')
             # additional postprocessing
-            postprocessing.extend([
+            dir_postprocessing = [
                 {
                     'type': 'file', 
                     'option': 2, # remove substring
@@ -370,7 +371,7 @@ class MetaManager:
                     'option': 2, # remove substring
                     'targets': [{'column_name': 'DIRECTORY_PATH', 'content': mask}]
                 },
-            ])
+            ]
 
         # 1. find benchmark file if exists
         if not os.path.exists(output_dir):
@@ -396,7 +397,7 @@ class MetaManager:
                 baseline = ''
 
         # 2. generate new manifest
-        new_file_meta_fp = cls.generate_manifest(source_dir, output_dir, mask, postprocessing)
+        new_file_meta_fp = cls.generate_manifest(source_dir, output_dir, mask, postprocessing + dir_postprocessing)
         logger.info(f'generated new manifest for {source_dir}')
 
         if baseline:
