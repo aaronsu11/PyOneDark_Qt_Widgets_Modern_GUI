@@ -256,8 +256,11 @@ class MetaManager:
         df_source_only['index'] = df_source_only['index'].add(2).astype(int)
         df_target_only['index'] = df_target_only['index'].add(2).astype(int)
 
+        # forece one-to-one matches
+        df_source_only['group_id'] = df_source_only.groupby(['DIRECTORY', 'HASH_VALUE', 'CREATION_TIME']).cumcount()
+        df_target_only['group_id'] = df_target_only.groupby(['DIRECTORY', 'HASH_VALUE', 'CREATION_TIME']).cumcount()
         # identify files that have been renamed
-        renamed_df = df_source_only.merge(df_target_only, on=['DIRECTORY', 'HASH_VALUE', 'CREATION_TIME'], suffixes=('_OLD', '_NEW'))
+        renamed_df = df_source_only.merge(df_target_only, on=['DIRECTORY', 'HASH_VALUE', 'CREATION_TIME', 'group_id'], suffixes=('_OLD', '_NEW'))
         drop_renamed_old = renamed_df['index_OLD'].to_list()
         drop_renamed_new = renamed_df['index_NEW'].to_list()
         # renamed_df.drop(columns=['_merge_OLD', '_merge_NEW'], inplace=True)
@@ -266,8 +269,11 @@ class MetaManager:
         df_source_only = df_source_only.query('index not in @drop_renamed_old')
         df_target_only = df_target_only.query('index not in @drop_renamed_new')
 
+        # forece one-to-one matches
+        df_source_only['group_id'] = df_source_only.groupby(['FILE_NAME', 'HASH_VALUE', 'CREATION_TIME']).cumcount()
+        df_target_only['group_id'] = df_target_only.groupby(['FILE_NAME', 'HASH_VALUE', 'CREATION_TIME']).cumcount()
         # identify files that have been moved
-        moved_df = df_source_only.merge(df_target_only, on=['FILE_NAME', 'HASH_VALUE', 'CREATION_TIME'], suffixes=('_OLD', '_NEW'))
+        moved_df = df_source_only.merge(df_target_only, on=['FILE_NAME', 'HASH_VALUE', 'CREATION_TIME', 'group_id'], suffixes=('_OLD', '_NEW'))
         drop_moved_old = moved_df['index_OLD'].to_list()
         drop_moved_new = moved_df['index_NEW'].to_list()
         # moved_df.drop(columns=['_merge_OLD', '_merge_NEW'], inplace=True)
@@ -276,8 +282,11 @@ class MetaManager:
         df_source_only = df_source_only.query('index not in @drop_moved_old')
         df_target_only = df_target_only.query('index not in @drop_moved_new')
 
+        # forece one-to-one matches
+        df_source_only['group_id'] = df_source_only.groupby(['DIRECTORY', 'FILE_NAME', 'CREATION_TIME']).cumcount()
+        df_target_only['group_id'] = df_target_only.groupby(['DIRECTORY', 'FILE_NAME', 'CREATION_TIME']).cumcount()
         # identify files that have been edited
-        edited_df = df_source_only.merge(df_target_only, on=['DIRECTORY', 'FILE_NAME', 'CREATION_TIME'], suffixes=('_OLD', '_NEW'))
+        edited_df = df_source_only.merge(df_target_only, on=['DIRECTORY', 'FILE_NAME', 'CREATION_TIME', 'group_id'], suffixes=('_OLD', '_NEW'))
         drop_edited_old = edited_df['index_OLD'].to_list()
         drop_edited_new = edited_df['index_NEW'].to_list()
 
